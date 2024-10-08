@@ -169,18 +169,36 @@ let ( >=. ) a b = Int64.compare a b >= 0
 
 (* Interpret a condition code with respect to the given flags. *)
 (* !!! Check the Specification for Help *)
-let interp_cnd { fo; fs; fz } : cnd -> bool = fun x -> failwith "interp_cnd unimplemented"
+let interp_cnd { fo; fs; fz } : cnd -> bool =
+  fun x ->
+  match x with
+  | Eq -> fz
+  | Neq -> not fz
+  | Gt -> fo = fs && not fz
+  | Lt -> fo <> fs
+  | Ge -> fo = fs
+  | Le -> fo <> fs || fz
+;;
 
 (* Maps an X86lite address into Some OCaml array index,
    or None if the address is not within the legal address space. *)
-let map_addr (addr : quad) : int option = failwith "map_addr not implemented"
+let map_addr (addr : quad) : int option =
+  let open Int64 in
+  let i = to_int (sub addr mem_bot) in
+  if i < 0 || i >= mem_size then None else Some i
+;;
 
 (* Your simulator should raise this exception if it tries to read from or
    store to an address not within the valid address space. *)
 exception X86lite_segfault
 
 (* Raise X86lite_segfault when addr is invalid. *)
-let map_addr_segfault (addr : quad) : int = failwith "map_addr_segfault not implemented"
+let map_addr_segfault (addr : quad) : int =
+  let result = map_addr addr in
+  match result with
+  | Some i -> i
+  | None -> raise X86lite_segfault
+;;
 
 (* Simulates one step of the machine:
    - fetch the instruction at %rip
