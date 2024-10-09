@@ -212,18 +212,86 @@ let map_addr_segfault (addr : quad) : int =
    See step function to understand each subroutine and how they
    are glued together.
 *)
+let fetch_addr_val (m : mach) (addr : quad) : sbyte list =
+  let i = map_addr addr in
+  match i with
+  | Some i ->
+    [
+      m.mem.(i);
+      m.mem.(i + 1);
+      m.mem.(i + 2);
+      m.mem.(i + 3);
+      m.mem.(i + 4);
+      m.mem.(i + 5);
+      m.mem.(i + 6);
+      m.mem.(i + 7);
+    ]
+  | None -> raise X86lite_segfault
 
-let readquad (m : mach) (addr : quad) : quad = failwith "readquad not implemented"
+
+let readquad (m : mach) (addr : quad) : quad = int64_of_sbytes (fetch_addr_val m addr)
 
 let writequad (m : mach) (addr : quad) (w : quad) : unit =
-  failwith "writequad not implemented"
-;;
+  let array_index = map_addr addr in
+  match array_index with
+  | Some i ->
+    let sbytes = sbytes_of_int64 w in
+    m.mem.(i) <- List.nth sbytes 0;
+    m.mem.(i + 1) <- List.nth sbytes 1;
+    m.mem.(i + 2) <- List.nth sbytes 2;
+    m.mem.(i + 3) <- List.nth sbytes 3;
+    m.mem.(i + 4) <- List.nth sbytes 4;
+    m.mem.(i + 5) <- List.nth sbytes 5;
+    m.mem.(i + 6) <- List.nth sbytes 6;
+    m.mem.(i + 7) <- List.nth sbytes 7;
+    (* List.iteri (fun idx byte ->
+       m.mem.(i + idx) <- byte
+       ) (List.take 8 sbytes) *)
+  | None -> raise X86lite_segfault
+
+(* Implement the interpretation of operands (including indirect
+   addresses), since this functionality will be needed for
+   simulating instructions.*)
+let rec interp_operand (m : mach) : operand -> int64 = function
+  | Imm i -> (
+      match i with
+      | Lit l -> l
+      | Lbl _ -> invalid_arg "interp_operand: tried to interpret a label!")
+  | Reg r -> m.regs.(rind r)
+  (* addr(Ind) = Base + [Index * Scale] + Disp*)
+  | Ind1 r ->
+    let litr = interp_operand m (Imm r) in
+    let addr = litr in
+    readquad m addr
+  | Ind2 r ->
+    let addr = m.regs.(rind r) in
+    readquad m addr
+  | Ind3 (r1, r2) ->
+    let addr = Int64.add m.regs.(rind r2) (interp_operand m (Imm r1)) in
+    readquad m addr
+
+let save_data (m : mach) (data : int64) (dest : operand) : unit =
+  match dest with
+  | Ind1 _ | Ind2 _ | Ind3 _ -> 
+    let addr = match dest with
+      | Ind1 r ->
+        interp_operand m (Imm r)
+      | Ind2 r -> m.regs.(rind r)
+      | Ind3 (r1, r2) -> Int64.add m.regs.(rind r2) (interp_operand m (Imm r1))
+      | _ -> failwith "save_data: unsupported destination operand"
+    in
+    writequad m addr data
+  | Reg r -> m.regs.(rind r) <- data
+  | Imm (Lit i) ->
+    let addr = Int64.add m.regs.(rind Rip) ins_size in
+    writequad m addr i
+  | _ -> failwith "save_data: unsupported destination operand"
 
 let fetchins (m : mach) (addr : quad) : ins = failwith "fetchins not implemented"
 
 (* Compute the instruction result.
  * NOTE: See int64_overflow.ml for the definition of the return type
-*  Int64_overflow.t. *)
+ *  Int64_overflow.t. *)
 let interp_opcode (m : mach) (o : opcode) (args : int64 list) : Int64_overflow.t =
   let open Int64 in
   let open Int64_overflow in
@@ -265,11 +333,11 @@ let step (m : mach) : unit =
   m.regs.(rind Rip) <- m.regs.(rind Rip) +. ins_size;
   List.iter
     (fun ((uop, _) as u) ->
-      if !debug_simulator then print_endline @@ string_of_ins u;
-      let ws = interp_operands m u in
-      let res = interp_opcode m uop ws in
-      ins_writeback m u @@ res.Int64_overflow.value;
-      set_flags m op ws res)
+       if !debug_simulator then print_endline @@ string_of_ins u;
+       let ws = interp_operands m u in
+       let res = interp_opcode m uop ws in
+       ins_writeback m u @@ res.Int64_overflow.value;
+       set_flags m op ws res)
     uops
 ;;
 
