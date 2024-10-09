@@ -291,7 +291,6 @@ let fetchins (m : mach) (addr : quad) : ins =
   let rip = m.regs.(rind Rip) in
   let inst = fetch_addr_val m rip in
   match inst with
-  (* TODO : WHY MATCHING 8 ELEMENTS IS NOT AVAILABLE?!! *)
   | InsB0 (op, args) :: _ -> (op, args)
   | _ -> failwith "fetchins: malformed instruction"
 
