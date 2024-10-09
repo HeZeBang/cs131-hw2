@@ -287,7 +287,13 @@ let save_data (m : mach) (data : int64) (dest : operand) : unit =
     writequad m addr i
   | _ -> failwith "save_data: unsupported destination operand"
 
-let fetchins (m : mach) (addr : quad) : ins = failwith "fetchins not implemented"
+let fetchins (m : mach) (addr : quad) : ins = 
+  let rip = m.regs.(rind Rip) in
+  let inst = fetch_addr_val m rip in
+  match inst with
+  (* TODO : WHY MATCHING 8 ELEMENTS IS NOT AVAILABLE?!! *)
+  | InsB0 (op, args) :: _ -> (op, args)
+  | _ -> failwith "fetchins: malformed instruction"
 
 (* Compute the instruction result.
  * NOTE: See int64_overflow.ml for the definition of the return type
