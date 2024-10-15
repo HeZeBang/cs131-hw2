@@ -216,18 +216,18 @@ let fetch_addr_val (m : mach) (addr : quad) : sbyte list =
   let i = map_addr addr in
   match i with
   | Some i ->
-    [
-      m.mem.(i);
-      m.mem.(i + 1);
-      m.mem.(i + 2);
-      m.mem.(i + 3);
-      m.mem.(i + 4);
-      m.mem.(i + 5);
-      m.mem.(i + 6);
-      m.mem.(i + 7);
+    [ (* TODO: change it into function style *)
+      m.mem.(i)
+    ; m.mem.(i + 1)
+    ; m.mem.(i + 2)
+    ; m.mem.(i + 3)
+    ; m.mem.(i + 4)
+    ; m.mem.(i + 5)
+    ; m.mem.(i + 6)
+    ; m.mem.(i + 7)
     ]
   | None -> raise X86lite_segfault
-
+;;
 
 let readquad (m : mach) (addr : quad) : quad = int64_of_sbytes (fetch_addr_val m addr)
 
@@ -243,20 +243,21 @@ let writequad (m : mach) (addr : quad) (w : quad) : unit =
     m.mem.(i + 4) <- List.nth sbytes 4;
     m.mem.(i + 5) <- List.nth sbytes 5;
     m.mem.(i + 6) <- List.nth sbytes 6;
-    m.mem.(i + 7) <- List.nth sbytes 7;
+    m.mem.(i + 7) <- List.nth sbytes 7
     (* List.iteri (fun idx byte ->
        m.mem.(i + idx) <- byte
        ) (List.take 8 sbytes) *)
   | None -> raise X86lite_segfault
+;;
 
 (* Implement the interpretation of operands (including indirect
    addresses), since this functionality will be needed for
    simulating instructions.*)
 let rec interp_operand (m : mach) : operand -> int64 = function
-  | Imm i -> (
-      match i with
-      | Lit l -> l
-      | Lbl _ -> invalid_arg "interp_operand: tried to interpret a label!")
+  | Imm i ->
+    (match i with
+     | Lit l -> l
+     | Lbl _ -> invalid_arg "interp_operand: tried to interpret a label!")
   | Reg r -> m.regs.(rind r)
   (* addr(Ind) = Base + [Index * Scale] + Disp*)
   | Ind1 r ->
@@ -269,13 +270,14 @@ let rec interp_operand (m : mach) : operand -> int64 = function
   | Ind3 (r1, r2) ->
     let addr = Int64.add m.regs.(rind r2) (interp_operand m (Imm r1)) in
     readquad m addr
+;;
 
 let save_data (m : mach) (data : int64) (dest : operand) : unit =
   match dest with
-  | Ind1 _ | Ind2 _ | Ind3 _ -> 
-    let addr = match dest with
-      | Ind1 r ->
-        interp_operand m (Imm r)
+  | Ind1 _ | Ind2 _ | Ind3 _ ->
+    let addr =
+      match dest with
+      | Ind1 r -> interp_operand m (Imm r)
       | Ind2 r -> m.regs.(rind r)
       | Ind3 (r1, r2) -> Int64.add m.regs.(rind r2) (interp_operand m (Imm r1))
       | _ -> failwith "save_data: unsupported destination operand"
@@ -286,13 +288,15 @@ let save_data (m : mach) (data : int64) (dest : operand) : unit =
     let addr = Int64.add m.regs.(rind Rip) ins_size in
     writequad m addr i
   | _ -> failwith "save_data: unsupported destination operand"
+;;
 
-let fetchins (m : mach) (addr : quad) : ins = 
+let fetchins (m : mach) (addr : quad) : ins =
   let rip = m.regs.(rind Rip) in
   let inst = fetch_addr_val m rip in
   match inst with
-  | InsB0 (op, args) :: _ -> (op, args)
+  | InsB0 (op, args) :: _ -> op, args
   | _ -> failwith "fetchins: malformed instruction"
+;;
 
 (* Compute the instruction result.
  * NOTE: See int64_overflow.ml for the definition of the return type
@@ -315,7 +319,53 @@ let interp_operands (m : mach) : ins -> int64 list =
 ;;
 
 let validate_operands : ins -> unit = function
-  | _ -> failwith "validate_operands not implemented"
+  | (Negq | Incq | Decq | Notq), [ dest ] ->
+    (match dest with
+     | Reg _ | Ind1 _ | Ind2 _ | Ind3 _ -> ()
+     | _ -> failwith "validate_operands: unsupported operand 'dest'")
+  | (Addq | Subq | Andq | Orq | Xorq | Movq), [ src; dest ] ->
+    (match src with
+     | Imm (Lit _) | Reg _ | Ind1 _ | Ind2 _ | Ind3 _ -> ()
+     | _ -> failwith "validate_operands: unsupported operand 'src'");
+    (match dest with
+     | Reg _ | Ind1 _ | Ind2 _ | Ind3 _ -> ()
+     | _ -> failwith "validate_operands: unsupported operand 'dest'")
+  | (Sarq | Shlq | Shrq), [ Imm (Lit _); dest ] ->
+    (match dest with
+     | Reg _ | Ind1 _ | Ind2 _ | Ind3 _ -> ()
+     | _ -> failwith "validate_operands: unsupported operand 'dest'")
+  | (Pushq | Jmp | Callq), [ src ] ->
+    (match src with
+     | Imm (Lit _) | Reg _ | Ind1 _ | Ind2 _ | Ind3 _ -> ()
+     | _ -> failwith "validate_operands: unsupported operand 'src'")
+  | Popq, [ src ] ->
+    (match src with
+     | Reg _ | Ind1 _ | Ind2 _ | Ind3 _ -> ()
+     | _ -> failwith "validate_operands: unsupported operand 'src'")
+  | (J _ | Set _), [ src ] ->
+    (match src with
+     | Imm (Lit _) | Reg _ | Ind1 _ | Ind2 _ | Ind3 _ -> ()
+     | _ -> failwith "validate_operands: unsupported operand 'src'")
+  | Cmpq, [ src1; src2 ] ->
+    (match src1 with
+     | Imm (Lit _) | Reg _ | Ind1 _ | Ind2 _ | Ind3 _ -> ()
+     | _ -> failwith "validate_operands: unsupported operand 'src1'");
+    (match src2 with
+     | Imm (Lit _) | Reg _ | Ind1 _ | Ind2 _ | Ind3 _ -> ()
+     | _ -> failwith "validate_operands: unsupported operand 'src2'")
+  | Leaq, [ ind; dest ] ->
+    (match ind with
+     | Ind1 _ | Ind2 _ | Ind3 _ -> ()
+     | _ -> failwith "validate_operands: unsupported operand 'ind'");
+    (match dest with
+     | Reg _ | Ind1 _ | Ind2 _ | Ind3 _ -> ()
+     | _ -> failwith "validate_operands: unsupported operand 'dest'")
+  | Imulq, [ src; Reg _ ] ->
+    (match src with
+     | Imm (Lit _) | Reg _ | Ind1 _ | Ind2 _ | Ind3 _ -> ()
+     | _ -> failwith "validate_operands: unsupported operand 'src'")
+  | Retq, [] -> ()
+  | _ -> failwith "validate_operands: unsupported instruction"
 ;;
 
 let crack : ins -> ins list = function
@@ -338,11 +388,11 @@ let step (m : mach) : unit =
   m.regs.(rind Rip) <- m.regs.(rind Rip) +. ins_size;
   List.iter
     (fun ((uop, _) as u) ->
-       if !debug_simulator then print_endline @@ string_of_ins u;
-       let ws = interp_operands m u in
-       let res = interp_opcode m uop ws in
-       ins_writeback m u @@ res.Int64_overflow.value;
-       set_flags m op ws res)
+      if !debug_simulator then print_endline @@ string_of_ins u;
+      let ws = interp_operands m u in
+      let res = interp_opcode m uop ws in
+      ins_writeback m u @@ res.Int64_overflow.value;
+      set_flags m op ws res)
     uops
 ;;
 
