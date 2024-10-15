@@ -433,11 +433,11 @@ let validate_operands : ins -> unit = function
 ;;
 
 (* Split instruction to smaller instructions *)
-let crack : ins -> ins list = function
+let rec crack : ins -> ins list = function
   | Pushq, [ src ] -> [ Subq, [ Imm (Lit 8L); Reg Rsp ]; Movq, [ src; Ind2 Rsp ] ]
   | Popq, [ dest ] -> [ Movq, [ Ind2 Rsp; dest ]; Addq, [ Imm (Lit 8L); Reg Rsp ] ]
-  | Callq, [ src ] -> [ Pushq, [ Reg Rip ]; Jmp, [ src ] ]
-  | Retq, [] -> [ Popq, [ Reg Rip ] ]
+  | Callq, [ src ] -> (crack (Pushq, [Reg Rip])) @ [ Jmp, [ src ] ]
+  | Retq, [] -> crack (Popq, [ Reg Rip ])
   | _ as ins -> [ ins ]
 ;;
 
