@@ -140,7 +140,7 @@ let interp_cnd_test (fo, fs, fz) tru () =
 let cc_test (s:string) (n: int) (m: mach) (fo', fs', fz') (f: mach -> bool) () =
   let m' = {m with flags = {fo=fo';fs=fs';fz=fz'}} in
   for _ri=1 to n do step m' done;
-  if (f m') then () else failwith s
+  if (f m') then () else failwith (s ^ ",\t but got " ^ Printf.sprintf "OF:%b SF:%b ZF:%b" m'.flags.fo m'.flags.fs m'.flags.fz)
 
 let cs_test (n:int) (m:mach) (fo',fs',fz') =
   cc_test (Printf.sprintf "expected OF:%b SF:%b ZF:%b" fo' fs' fz')

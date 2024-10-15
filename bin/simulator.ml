@@ -335,7 +335,7 @@ let interp_opcode (m : mach) (o : opcode) (args : int64 list) : Int64_overflow.t
   | Set c, [ src ] ->
     let b = interp_cnd m.flags c in
     { value = (if b then 1L else 0L); overflow = false }
-  | Cmpq, [ src1; src2 ] -> sub src1 src2
+  | Cmpq, [ src1; src2 ] -> sub src2 src1
   | J c, [ src ] ->
     (* TODO: *)
     let b = interp_cnd m.flags c in
