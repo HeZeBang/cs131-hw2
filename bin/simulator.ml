@@ -387,7 +387,7 @@ let validate_operands : ins -> unit = function
     (match dest with
      | Reg _ | Ind1 _ | Ind2 _ | Ind3 _ -> ()
      | _ -> failwith "validate_operands: unsupported operand 'dest'")
-  | (Addq | Subq | Andq | Orq | Xorq | Movq | Sarq | Shlq | Shrq), [ src; dest ] ->
+  | (Addq | Subq | Andq | Imulq | Orq | Xorq | Movq | Sarq | Shlq | Shrq), [ src; dest ] ->
     (match src with
      | Imm (Lit _) | Reg _ | Ind1 _ | Ind2 _ | Ind3 _ -> ()
      | _ -> failwith "validate_operands: unsupported operand 'src'");
@@ -424,10 +424,10 @@ let validate_operands : ins -> unit = function
     (match dest with
      | Reg _ | Ind1 _ | Ind2 _ | Ind3 _ -> ()
      | _ -> failwith "validate_operands: unsupported operand 'dest'")
-  | Imulq, [ src; Reg _ ] ->
+  (* | Imulq, [ src; Reg _ ] ->
     (match src with
      | Imm (Lit _) | Reg _ | Ind1 _ | Ind2 _ | Ind3 _ -> ()
-     | _ -> failwith "validate_operands: unsupported operand 'src'")
+     | _ -> failwith "validate_operands: unsupported operand 'src'")*)
   | Retq, [] -> ()
   | _ -> failwith "validate_operands: unsupported instruction"
 ;;
