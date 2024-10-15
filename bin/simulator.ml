@@ -305,7 +305,44 @@ let interp_opcode (m : mach) (o : opcode) (args : int64 list) : Int64_overflow.t
   let open Int64 in
   let open Int64_overflow in
   match o, args with
-  | _ -> failwith "interp_opcode not implemented"
+  | Movq, [ src; _ ] -> { value = src; overflow = false }
+  | Leaq, [ ind; _ ] -> { value = ind; overflow = false }
+  | (Negq | Incq | Decq), [ dest ] ->
+    (match o with
+     | Negq -> neg dest
+     | Incq -> add dest 1L
+     | Decq -> sub dest 1L
+     | _ -> failwith "interp_opcode: unsupported instruction")
+  | (Addq | Subq | Imulq), [ src; dest ] ->
+    (match o with
+     | Addq -> add dest src
+     | Subq -> sub dest src
+     | Imulq -> mul dest src
+     | _ -> failwith "interp_opcode: unsupported instruction")
+  | Notq, [ dest ] -> { value = lognot dest; overflow = false }
+  | (Xorq | Orq | Andq), [ src; dest ] ->
+    (match o with
+     | Xorq -> { value = logxor dest src; overflow = false }
+     | Orq -> { value = logor dest src; overflow = false }
+     | Andq -> { value = logand dest src; overflow = false }
+     | _ -> failwith "interp_opcode: unsupported instruction")
+  | (Sarq | Shlq | Shrq), [ i; dest ] ->
+    (match o with
+     | Sarq -> { value = shift_right dest (to_int i); overflow = false }
+     | Shlq -> { value = shift_left dest (to_int i); overflow = false }
+     | Shrq -> { value = shift_right_logical dest (to_int i); overflow = false }
+     | _ -> failwith "interp_opcode: unsupported instruction")
+  | Set c, [ src ] ->
+    let b = interp_cnd m.flags c in
+    { value = if b then 1L else 0L; overflow = false }
+  | Cmpq, [ src1; src2 ] ->
+    sub src1 src2
+  | J c, [ src ] -> (* TODO: *)
+    let b = interp_cnd m.flags c in
+    if b then { value = src; overflow = false } else { value = m.regs.(rind Rip); overflow = false }
+  | Jmp, [ src ] -> { value = src; overflow = false }
+  | (Pushq | Popq | Callq | Retq), _ -> failwith "interp_opcode: should not reach here"
+  | _ -> failwith "interp_opcode: unsupported instruction"
 ;;
 
 (** Update machine state with instruction results. *)
@@ -315,7 +352,21 @@ let ins_writeback (m : mach) : ins -> int64 -> unit =
 
 (* mem addr ---> mem array index *)
 let interp_operands (m : mach) : ins -> int64 list =
-  failwith "interp_operands not implemented"
+  let open List in
+  let open Int64 in
+  function
+  | (Negq | Incq | Decq | Notq), [ dest ] -> [ interp_operand m dest ]
+  | (Addq | Subq | Andq | Orq | Xorq | Movq), [ src; dest ] ->
+    [ interp_operand m src; interp_operand m dest ]
+  | (Sarq | Shlq | Shrq), [ Imm (Lit i); dest ] -> [ i; interp_operand m dest ]
+  | (Pushq | Jmp | Callq), [ src ] -> [ interp_operand m src ]
+  | Popq, [ src ] -> [ interp_operand m src ]
+  | (J _ | Set _), [ src ] -> [ interp_operand m src ]
+  | Cmpq, [ src1; src2 ] -> [ interp_operand m src1; interp_operand m src2 ]
+  | Leaq, [ ind; dest ] -> [ interp_operand m ind; interp_operand m dest ]
+  | Imulq, [ src; Reg _ ] -> [ interp_operand m src ]
+  | Retq, [] -> []
+  | _ -> failwith "interp_operands: unsupported instruction"
 ;;
 
 let validate_operands : ins -> unit = function
@@ -368,10 +419,12 @@ let validate_operands : ins -> unit = function
   | _ -> failwith "validate_operands: unsupported instruction"
 ;;
 
+(* Split instruction to smaller instructions *)
 let crack : ins -> ins list = function
-  | Pushq, [ src ] -> [ (Subq, [ Imm (Lit 8L); Reg Rsp ]); (Movq, [ src; Ind2 Rsp ]) ]
-  | Popq, [ dest ] -> [ (Movq, [ Ind2 Rsp; dest ]); (Addq, [ Imm (Lit 8L); Reg Rsp ]) ]
-  | Callq, [ src ] -> [ (Pushq, [ Reg Rip ]); (Jmp, [ src ]) ]
+  | Pushq, [ src ] -> [ Subq, [ Imm (Lit 8L); Reg Rsp ]; Movq, [ src; Ind2 Rsp ] ]
+  | Popq, [ dest ] -> [ Movq, [ Ind2 Rsp; dest ]; Addq, [ Imm (Lit 8L); Reg Rsp ] ]
+  | Callq, [ src ] -> [ Pushq, [ Reg Rip ]; Jmp, [ src ] ]
+  | Retq, [] -> [ Popq, [ Reg Rip ] ]
   | _ as ins -> [ ins ]
 ;;
 
