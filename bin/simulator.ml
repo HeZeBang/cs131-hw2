@@ -334,12 +334,14 @@ let interp_opcode (m : mach) (o : opcode) (args : int64 list) : Int64_overflow.t
      | _ -> failwith "interp_opcode: unsupported instruction")
   | Set c, [ src ] ->
     let b = interp_cnd m.flags c in
-    { value = if b then 1L else 0L; overflow = false }
-  | Cmpq, [ src1; src2 ] ->
-    sub src1 src2
-  | J c, [ src ] -> (* TODO: *)
+    { value = (if b then 1L else 0L); overflow = false }
+  | Cmpq, [ src1; src2 ] -> sub src1 src2
+  | J c, [ src ] ->
+    (* TODO: *)
     let b = interp_cnd m.flags c in
-    if b then { value = src; overflow = false } else { value = m.regs.(rind Rip); overflow = false }
+    if b
+    then { value = src; overflow = false }
+    else { value = m.regs.(rind Rip); overflow = false }
   | Jmp, [ src ] -> { value = src; overflow = false }
   | (Pushq | Popq | Callq | Retq), _ -> failwith "interp_opcode: should not reach here"
   | _ -> failwith "interp_opcode: unsupported instruction"
@@ -367,9 +369,9 @@ let interp_operands (m : mach) : ins -> int64 list =
   let open Int64 in
   function
   | (Negq | Incq | Decq | Notq), [ dest ] -> [ interp_operand m dest ]
-  | (Addq | Subq | Andq | Orq | Xorq | Movq), [ src; dest ] ->
+  | (Addq | Subq | Andq | Orq | Xorq | Movq | Sarq | Shlq | Shrq), [ src; dest ] ->
     [ interp_operand m src; interp_operand m dest ]
-  | (Sarq | Shlq | Shrq), [ Imm (Lit i); dest ] -> [ i; interp_operand m dest ]
+  (* | (Sarq | Shlq | Shrq), [ Imm (Lit i); dest ] -> [ i; interp_operand m dest ] *)
   | (Pushq | Jmp | Callq), [ src ] -> [ interp_operand m src ]
   | Popq, [ src ] -> [ interp_operand m src ]
   | (J _ | Set _), [ src ] -> [ interp_operand m src ]
@@ -385,17 +387,17 @@ let validate_operands : ins -> unit = function
     (match dest with
      | Reg _ | Ind1 _ | Ind2 _ | Ind3 _ -> ()
      | _ -> failwith "validate_operands: unsupported operand 'dest'")
-  | (Addq | Subq | Andq | Orq | Xorq | Movq), [ src; dest ] ->
+  | (Addq | Subq | Andq | Orq | Xorq | Movq | Sarq | Shlq | Shrq), [ src; dest ] ->
     (match src with
      | Imm (Lit _) | Reg _ | Ind1 _ | Ind2 _ | Ind3 _ -> ()
      | _ -> failwith "validate_operands: unsupported operand 'src'");
     (match dest with
      | Reg _ | Ind1 _ | Ind2 _ | Ind3 _ -> ()
      | _ -> failwith "validate_operands: unsupported operand 'dest'")
-  | (Sarq | Shlq | Shrq), [ Imm (Lit _); dest ] ->
-    (match dest with
+  (* | (Sarq | Shlq | Shrq), [ Imm (Lit _); dest ] ->
+     (match dest with
      | Reg _ | Ind1 _ | Ind2 _ | Ind3 _ -> ()
-     | _ -> failwith "validate_operands: unsupported operand 'dest'")
+     | _ -> failwith "validate_operands: unsupported operand 'dest'") *)
   | (Pushq | Jmp | Callq), [ src ] ->
     (match src with
      | Imm (Lit _) | Reg _ | Ind1 _ | Ind2 _ | Ind3 _ -> ()
