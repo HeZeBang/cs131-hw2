@@ -346,8 +346,19 @@ let interp_opcode (m : mach) (o : opcode) (args : int64 list) : Int64_overflow.t
 ;;
 
 (** Update machine state with instruction results. *)
-let ins_writeback (m : mach) : ins -> int64 -> unit =
-  failwith "ins_writeback not implemented"
+let ins_writeback (m : mach) (instr : ins) (value : int64) : unit =
+  match instr with
+  | (Negq | Incq | Decq | Notq), [ dest ] -> save_data m value dest
+  | (Addq | Subq | Andq | Orq | Xorq | Movq), [ _; dest ] -> save_data m value dest
+  | (Sarq | Shlq | Shrq), [ _; dest ] -> save_data m value dest
+  | (Pushq | Jmp | Callq), [ _ ] -> m.regs.(rind Rip) <- value
+  | Popq, [ dest ] -> save_data m value dest
+  | (J _ | Set _), [ _ ] -> ()
+  | Cmpq, [ _; _ ] -> ()
+  | Leaq, [ _; dest ] -> save_data m value dest
+  | Imulq, [ _; Reg _ ] -> m.regs.(rind Rax) <- value
+  | Retq, [] -> m.regs.(rind Rip) <- value
+  | _ -> failwith "ins_writeback: unsupported instruction"
 ;;
 
 (* mem addr ---> mem array index *)
@@ -430,7 +441,9 @@ let crack : ins -> ins list = function
 
 (* TODO: double check against spec *)
 let set_flags (m : mach) (op : opcode) (ws : quad list) (w : Int64_overflow.t) : unit =
-  failwith "set_flags not implemented"
+  m.flags.fo <- w.overflow;
+  m.flags.fs <- w.value <. 0L;
+  m.flags.fz <- w.value = 0L
 ;;
 
 let step (m : mach) : unit =
