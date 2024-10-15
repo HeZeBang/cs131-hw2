@@ -351,14 +351,14 @@ let interp_opcode (m : mach) (o : opcode) (args : int64 list) : Int64_overflow.t
 let ins_writeback (m : mach) (instr : ins) (value : int64) : unit =
   match instr with
   | (Negq | Incq | Decq | Notq), [ dest ] -> save_data m value dest
-  | (Addq | Subq | Andq | Orq | Xorq | Movq), [ _; dest ] -> save_data m value dest
+  | (Addq | Subq | Andq | Imulq | Orq | Xorq | Movq), [ _; dest ] -> save_data m value dest
   | (Sarq | Shlq | Shrq), [ _; dest ] -> save_data m value dest
   | (Pushq | Jmp | Callq), [ _ ] -> m.regs.(rind Rip) <- value
   | Popq, [ dest ] -> save_data m value dest
   | (J _ | Set _), [ _ ] -> ()
   | Cmpq, [ _; _ ] -> ()
   | Leaq, [ _; dest ] -> save_data m value dest
-  | Imulq, [ _; Reg _ ] -> m.regs.(rind Rax) <- value
+  (* | Imulq, [ _; Reg _ ] -> m.regs.(rind Rax) <- value *)
   | Retq, [] -> m.regs.(rind Rip) <- value
   | _ -> failwith "ins_writeback: unsupported instruction"
 ;;
@@ -369,7 +369,7 @@ let interp_operands (m : mach) : ins -> int64 list =
   let open Int64 in
   function
   | (Negq | Incq | Decq | Notq), [ dest ] -> [ interp_operand m dest ]
-  | (Addq | Subq | Andq | Orq | Xorq | Movq | Sarq | Shlq | Shrq), [ src; dest ] ->
+  | (Addq | Subq | Andq | Imulq | Orq | Xorq | Movq | Sarq | Shlq | Shrq), [ src; dest ] ->
     [ interp_operand m src; interp_operand m dest ]
   (* | (Sarq | Shlq | Shrq), [ Imm (Lit i); dest ] -> [ i; interp_operand m dest ] *)
   | (Pushq | Jmp | Callq), [ src ] -> [ interp_operand m src ]
@@ -377,7 +377,7 @@ let interp_operands (m : mach) : ins -> int64 list =
   | (J _ | Set _), [ src ] -> [ interp_operand m src ]
   | Cmpq, [ src1; src2 ] -> [ interp_operand m src1; interp_operand m src2 ]
   | Leaq, [ ind; dest ] -> [ interp_operand m ind; interp_operand m dest ]
-  | Imulq, [ src; Reg _ ] -> [ interp_operand m src ]
+  (* | Imulq, [ src; Reg _ ] -> [ interp_operand m src ] *)
   | Retq, [] -> []
   | _ -> failwith "interp_operands: unsupported instruction"
 ;;
