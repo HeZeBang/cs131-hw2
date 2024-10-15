@@ -369,7 +369,10 @@ let validate_operands : ins -> unit = function
 ;;
 
 let crack : ins -> ins list = function
-  | _ -> failwith "crack not implemented"
+  | Pushq, [ src ] -> [ (Subq, [ Imm (Lit 8L); Reg Rsp ]); (Movq, [ src; Ind2 Rsp ]) ]
+  | Popq, [ dest ] -> [ (Movq, [ Ind2 Rsp; dest ]); (Addq, [ Imm (Lit 8L); Reg Rsp ]) ]
+  | Callq, [ src ] -> [ (Pushq, [ Reg Rip ]); (Jmp, [ src ]) ]
+  | _ as ins -> [ ins ]
 ;;
 
 (* TODO: double check against spec *)
