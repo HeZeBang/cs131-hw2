@@ -443,9 +443,20 @@ let rec crack : ins -> ins list = function
 
 (* TODO: double check against spec *)
 let set_flags (m : mach) (op : opcode) (ws : quad list) (w : Int64_overflow.t) : unit =
-  m.flags.fo <- w.overflow;
-  m.flags.fs <- w.value <. 0L;
-  m.flags.fz <- w.value = 0L
+  match op with
+  | (Negq | Incq | Decq | Addq | Subq | Imulq | Cmpq) ->
+    m.flags.fo <- w.overflow;
+    m.flags.fs <- w.value <. 0L;
+    m.flags.fz <- w.value = 0L
+  | (Xorq | Orq | Andq) ->
+    m.flags.fo <- false;
+    m.flags.fs <- w.value <. 0L;
+    m.flags.fz <- w.value = 0L
+  | (Sarq | Shlq | Shrq) ->
+    (* m.flags.fo <- false; *)
+    m.flags.fs <- w.value <. 0L;
+    m.flags.fz <- w.value = 0L
+  | _ -> ()
 ;;
 
 let step (m : mach) : unit =
