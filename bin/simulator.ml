@@ -213,7 +213,7 @@ let map_addr_segfault (addr : quad) : int =
    are glued together.
 *)
 let fetch_addr_val (m : mach) (addr : quad) : sbyte list =
-  let i = map_addr addr in
+  (* let i = map_addr addr in
   match i with
   | Some i ->
     [ (* TODO: change it into function style *)
@@ -226,13 +226,16 @@ let fetch_addr_val (m : mach) (addr : quad) : sbyte list =
     ; m.mem.(i + 6)
     ; m.mem.(i + 7)
     ]
-  | None -> raise X86lite_segfault
+  | None -> raise X86lite_segfault *)
+  (* Use map_addr_segfault and change into functional style Iter *)
+  let i = map_addr_segfault addr in
+  List.init 8 (fun idx -> m.mem.(i + idx))
 ;;
 
 let readquad (m : mach) (addr : quad) : quad = int64_of_sbytes (fetch_addr_val m addr)
 
 let writequad (m : mach) (addr : quad) (w : quad) : unit =
-  let array_index = map_addr addr in
+  (* let array_index = map_addr addr in
   match array_index with
   | Some i ->
     let sbytes = sbytes_of_int64 w in
@@ -247,7 +250,10 @@ let writequad (m : mach) (addr : quad) (w : quad) : unit =
     (* List.iteri (fun idx byte ->
        m.mem.(i + idx) <- byte
        ) (List.take 8 sbytes) *)
-  | None -> raise X86lite_segfault
+  | None -> raise X86lite_segfault *)
+  let i = map_addr_segfault addr in
+  let sbytes = sbytes_of_int64 w in
+  List.iteri (fun idx byte -> m.mem.(i + idx) <- byte) sbytes
 ;;
 
 (* Implement the interpretation of operands (including indirect
@@ -520,8 +526,26 @@ exception Redefined_sym of lbl
 
    HINT: List.fold_left and List.fold_right are your friends.
 *)
-let is_size (is : ins list) : quad = failwith "is_size not implemented"
-let ds_size (ds : data list) : quad = failwith "ds_size not implemented"
+let is_size (is : ins list) : quad = 
+  let rec loop acc = function
+    | [] -> acc
+    | (op, args) :: rest ->
+      let size = match op with
+        | Pushq | Popq | Callq -> 8L
+        | _ -> 1L
+      in
+      loop (acc +. size) rest
+  in
+  loop 0L is
+;;
+
+let ds_size (ds : data list) : quad =
+  let rec loop acc = function
+    | [] -> acc
+    | Quad _ :: rest -> loop (acc +. 8L) rest
+    | Asciz s :: rest -> loop (acc +. Int64.of_int (String.length s + 1)) rest
+  in
+  loop 0L ds
 let assemble (p : prog) : exec = failwith "assemble unimplemented"
 
 (* Convert an object file into an executable machine state.
