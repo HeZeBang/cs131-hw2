@@ -531,8 +531,7 @@ let is_size (is : ins list) : quad =
     | [] -> acc
     | (op, args) :: rest ->
       let size = match op with
-        | Pushq | Popq | Callq -> 8L
-        | _ -> 1L
+        | _ -> 8L
       in
       loop (acc +. size) rest
   in
