@@ -569,7 +569,7 @@ let find_label (tbl : (lbl, quad) Hashtbl.t) (lbl : lbl) : quad =
   | None -> raise (Undefined_sym lbl)
 ;;
 
-let resolve_labels (elem_list : elem list) (tbl : (lbl, quad) Hashtbl.t) : elem list =
+let resolve_labels (elem_list : ins list) (tbl : (lbl, quad) Hashtbl.t) : ins list =
   let find_and_raise = find_label tbl in
   let resolve_operand (op : operand) : operand =
     match op with
@@ -578,14 +578,7 @@ let resolve_labels (elem_list : elem list) (tbl : (lbl, quad) Hashtbl.t) : elem 
     | Ind3 (Lbl l, r) -> Ind3 (Lit (find_and_raise l), r)
     | _ -> op
   in
-  let resolve_ins ({ asm; _ } as elem : elem) : elem =
-    match asm with
-    | Text is ->
-      { elem with
-        asm = Text (List.map (fun (op, args) -> op, List.map resolve_operand args) is)
-      }
-    | Data _ -> elem
-  in
+  let resolve_ins (op, args) : ins = (op, List.map resolve_operand args) in
   List.map resolve_ins elem_list
 ;;
 
@@ -621,7 +614,7 @@ let assemble (p : prog) : exec =
   let data_pos = mem_bot +. text_size in
   let hash_tbl = parse_labels (text @ data) text_pos in
   let entry = find_label hash_tbl "main" in
-  let text_seg = List.flatten @@ List.map sbytes_of_ins text_list
+  let text_seg = List.flatten @@ List.map sbytes_of_ins (resolve_labels text_list hash_tbl)
   and data_seg = List.flatten @@ List.map sbytes_of_data data_list in
   { entry; text_pos; data_pos; text_seg; data_seg }
 ;;
