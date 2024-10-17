@@ -127,7 +127,7 @@ let int64_of_sbytes (bs : sbyte list) : int64 =
 let sbytes_of_string (s : string) : sbyte list =
   let rec loop acc = function
     | i when i < 0 -> acc
-    | i -> loop (Byte s.[i] :: acc) (pred i)
+    | i -> loop (Byte s.[i] :: acc) (Int.pred i)
   in
   loop [ Byte '\x00' ] @@ (String.length s - 1)
 ;;
@@ -297,11 +297,14 @@ let save_data (m : mach) (data : int64) (dest : operand) : unit =
 ;;
 
 let fetchins (m : mach) (addr : quad) : ins =
+  if !debug_simulator then Printf.printf "fetchins: addr = %Lx\n" addr;
   let rip = m.regs.(rind Rip) in
   let inst = fetch_addr_val m rip in
   match inst with
   | InsB0 (op, args) :: _ -> op, args
-  | _ -> failwith "fetchins: malformed instruction"
+  | _ -> 
+    (if !debug_simulator then Printf.printf "fetchins: Error on %s\n" (Int64.to_string rip);
+    failwith ("fetchins: malformed instruction " ^ Int64.to_string rip);)
 ;;
 
 (* Compute the instruction result.
@@ -578,7 +581,7 @@ let resolve_labels (elem_list : ins list) (tbl : (lbl, quad) Hashtbl.t) : ins li
     | Ind3 (Lbl l, r) -> Ind3 (Lit (find_and_raise l), r)
     | _ -> op
   in
-  let resolve_ins (op, args) : ins = (op, List.map resolve_operand args) in
+  let resolve_ins (op, args) : ins = op, List.map resolve_operand args in
   List.map resolve_ins elem_list
 ;;
 
@@ -614,7 +617,8 @@ let assemble (p : prog) : exec =
   let data_pos = mem_bot +. text_size in
   let hash_tbl = parse_labels (text @ data) text_pos in
   let entry = find_label hash_tbl "main" in
-  let text_seg = List.flatten @@ List.map sbytes_of_ins (resolve_labels text_list hash_tbl)
+  let text_seg =
+    List.flatten @@ List.map sbytes_of_ins (resolve_labels text_list hash_tbl)
   and data_seg = List.flatten @@ List.map sbytes_of_data data_list in
   { entry; text_pos; data_pos; text_seg; data_seg }
 ;;
@@ -637,18 +641,18 @@ let load { entry; text_pos; data_pos; text_seg; data_seg } : mach =
   let _ =
     List.iteri
       (fun i byte ->
-        mem.(i) <-
-          (match byte with
-           | InsB0 (op, args) -> InsB0 (op, args)
-           | InsFrag -> InsFrag
-           | Byte c -> Byte c))
+        mem.(i)
+        <- (match byte with
+            | InsB0 (op, args) -> InsB0 (op, args)
+            | InsFrag -> InsFrag
+            | Byte c -> Byte c))
       (text_seg @ data_seg)
   in
   let regs = Array.make nregs 0L in
   regs.(rind Rip) <- entry;
   regs.(rind Rsp) <- mem_top -. 8L;
-  { flags = { fo = false; fs = false; fz = false }
-  ; regs
-  ; mem
-  }
+  (* exit_addr magic number in mem_top-8 *)
+  writequad { flags = { fo = false; fs = false; fz = false }; regs; mem } (mem_top -. 8L) exit_addr;
+  if !debug_simulator then print_endline "Loaded machine state";
+  { flags = { fo = false; fs = false; fz = false }; regs; mem }
 ;;
