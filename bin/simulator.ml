@@ -214,9 +214,9 @@ let map_addr_segfault (addr : quad) : int =
 *)
 let fetch_addr_val (m : mach) (addr : quad) : sbyte list =
   (* let i = map_addr addr in
-  match i with
-  | Some i ->
-    [ (* TODO: change it into function style *)
+     match i with
+     | Some i ->
+     [ (* TODO: change it into function style *)
       m.mem.(i)
     ; m.mem.(i + 1)
     ; m.mem.(i + 2)
@@ -226,7 +226,7 @@ let fetch_addr_val (m : mach) (addr : quad) : sbyte list =
     ; m.mem.(i + 6)
     ; m.mem.(i + 7)
     ]
-  | None -> raise X86lite_segfault *)
+     | None -> raise X86lite_segfault *)
   (* Use map_addr_segfault and change into functional style Iter *)
   let i = map_addr_segfault addr in
   List.init 8 (fun idx -> m.mem.(i + idx))
@@ -236,21 +236,21 @@ let readquad (m : mach) (addr : quad) : quad = int64_of_sbytes (fetch_addr_val m
 
 let writequad (m : mach) (addr : quad) (w : quad) : unit =
   (* let array_index = map_addr addr in
-  match array_index with
-  | Some i ->
-    let sbytes = sbytes_of_int64 w in
-    m.mem.(i) <- List.nth sbytes 0;
-    m.mem.(i + 1) <- List.nth sbytes 1;
-    m.mem.(i + 2) <- List.nth sbytes 2;
-    m.mem.(i + 3) <- List.nth sbytes 3;
-    m.mem.(i + 4) <- List.nth sbytes 4;
-    m.mem.(i + 5) <- List.nth sbytes 5;
-    m.mem.(i + 6) <- List.nth sbytes 6;
-    m.mem.(i + 7) <- List.nth sbytes 7
-    (* List.iteri (fun idx byte ->
-       m.mem.(i + idx) <- byte
-       ) (List.take 8 sbytes) *)
-  | None -> raise X86lite_segfault *)
+     match array_index with
+     | Some i ->
+     let sbytes = sbytes_of_int64 w in
+     m.mem.(i) <- List.nth sbytes 0;
+     m.mem.(i + 1) <- List.nth sbytes 1;
+     m.mem.(i + 2) <- List.nth sbytes 2;
+     m.mem.(i + 3) <- List.nth sbytes 3;
+     m.mem.(i + 4) <- List.nth sbytes 4;
+     m.mem.(i + 5) <- List.nth sbytes 5;
+     m.mem.(i + 6) <- List.nth sbytes 6;
+     m.mem.(i + 7) <- List.nth sbytes 7
+     (* List.iteri (fun idx byte ->
+     m.mem.(i + idx) <- byte
+     ) (List.take 8 sbytes) *)
+     | None -> raise X86lite_segfault *)
   let i = map_addr_segfault addr in
   let sbytes = sbytes_of_int64 w in
   List.iteri (fun idx byte -> m.mem.(i + idx) <- byte) sbytes
@@ -357,7 +357,8 @@ let interp_opcode (m : mach) (o : opcode) (args : int64 list) : Int64_overflow.t
 let ins_writeback (m : mach) (instr : ins) (value : int64) : unit =
   match instr with
   | (Negq | Incq | Decq | Notq), [ dest ] -> save_data m value dest
-  | (Addq | Subq | Andq | Imulq | Orq | Xorq | Movq), [ _; dest ] -> save_data m value dest
+  | (Addq | Subq | Andq | Imulq | Orq | Xorq | Movq), [ _; dest ] ->
+    save_data m value dest
   | (Sarq | Shlq | Shrq), [ _; dest ] -> save_data m value dest
   | (Pushq | Jmp | Callq), [ _ ] -> m.regs.(rind Rip) <- value
   | Popq, [ dest ] -> save_data m value dest
@@ -375,8 +376,8 @@ let interp_operands (m : mach) : ins -> int64 list =
   let open Int64 in
   function
   | (Negq | Incq | Decq | Notq), [ dest ] -> [ interp_operand m dest ]
-  | (Addq | Subq | Andq | Imulq | Orq | Xorq | Movq | Sarq | Shlq | Shrq), [ src; dest ] ->
-    [ interp_operand m src; interp_operand m dest ]
+  | (Addq | Subq | Andq | Imulq | Orq | Xorq | Movq | Sarq | Shlq | Shrq), [ src; dest ]
+    -> [ interp_operand m src; interp_operand m dest ]
   (* | (Sarq | Shlq | Shrq), [ Imm (Lit i); dest ] -> [ i; interp_operand m dest ] *)
   | (Pushq | Jmp | Callq), [ src ] -> [ interp_operand m src ]
   | Popq, [ src ] -> [ interp_operand m src ]
@@ -393,7 +394,8 @@ let validate_operands : ins -> unit = function
     (match dest with
      | Reg _ | Ind1 _ | Ind2 _ | Ind3 _ -> ()
      | _ -> failwith "validate_operands: unsupported operand 'dest'")
-  | (Addq | Subq | Andq | Imulq | Orq | Xorq | Movq | Sarq | Shlq | Shrq), [ src; dest ] ->
+  | (Addq | Subq | Andq | Imulq | Orq | Xorq | Movq | Sarq | Shlq | Shrq), [ src; dest ]
+    ->
     (match src with
      | Imm (Lit _) | Reg _ | Ind1 _ | Ind2 _ | Ind3 _ -> ()
      | _ -> failwith "validate_operands: unsupported operand 'src'");
@@ -431,7 +433,7 @@ let validate_operands : ins -> unit = function
      | Reg _ | Ind1 _ | Ind2 _ | Ind3 _ -> ()
      | _ -> failwith "validate_operands: unsupported operand 'dest'")
   (* | Imulq, [ src; Reg _ ] ->
-    (match src with
+     (match src with
      | Imm (Lit _) | Reg _ | Ind1 _ | Ind2 _ | Ind3 _ -> ()
      | _ -> failwith "validate_operands: unsupported operand 'src'")*)
   | Retq, [] -> ()
@@ -442,7 +444,7 @@ let validate_operands : ins -> unit = function
 let rec crack : ins -> ins list = function
   | Pushq, [ src ] -> [ Subq, [ Imm (Lit 8L); Reg Rsp ]; Movq, [ src; Ind2 Rsp ] ]
   | Popq, [ dest ] -> [ Movq, [ Ind2 Rsp; dest ]; Addq, [ Imm (Lit 8L); Reg Rsp ] ]
-  | Callq, [ src ] -> (crack (Pushq, [Reg Rip])) @ [ Jmp, [ src ] ]
+  | Callq, [ src ] -> crack (Pushq, [ Reg Rip ]) @ [ Jmp, [ src ] ]
   | Retq, [] -> crack (Popq, [ Reg Rip ])
   | _ as ins -> [ ins ]
 ;;
@@ -450,15 +452,15 @@ let rec crack : ins -> ins list = function
 (* TODO: double check against spec *)
 let set_flags (m : mach) (op : opcode) (ws : quad list) (w : Int64_overflow.t) : unit =
   match op with
-  | (Negq | Incq | Decq | Addq | Subq | Imulq | Cmpq) ->
+  | Negq | Incq | Decq | Addq | Subq | Imulq | Cmpq ->
     m.flags.fo <- w.overflow;
     m.flags.fs <- w.value <. 0L;
     m.flags.fz <- w.value = 0L
-  | (Xorq | Orq | Andq) ->
+  | Xorq | Orq | Andq ->
     m.flags.fo <- false;
     m.flags.fs <- w.value <. 0L;
     m.flags.fz <- w.value = 0L
-  | (Sarq | Shlq | Shrq) ->
+  | Sarq | Shlq | Shrq ->
     (* m.flags.fo <- false; *)
     m.flags.fs <- w.value <. 0L;
     m.flags.fz <- w.value = 0L
@@ -526,26 +528,103 @@ exception Redefined_sym of lbl
 
    HINT: List.fold_left and List.fold_right are your friends.
 *)
-let is_size (is : ins list) : quad = 
-  let rec loop acc = function
-    | [] -> acc
-    | (op, args) :: rest ->
-      let size = match op with
-        | _ -> 8L
-      in
-      loop (acc +. size) rest
-  in
-  loop 0L is
-;;
+let is_size (is : ins list) : quad = List.fold_left (fun acc _ -> acc +. ins_size) 0L is
 
 let ds_size (ds : data list) : quad =
-  let rec loop acc = function
-    | [] -> acc
-    | Quad _ :: rest -> loop (acc +. 8L) rest
-    | Asciz s :: rest -> loop (acc +. Int64.of_int (String.length s + 1)) rest
+  List.fold_left
+    (fun acc -> function
+      | Quad _ -> acc +. 8L
+      | Asciz s -> acc +. Int64.of_int (String.length s + 1))
+    0L
+    ds
+;;
+
+type label_data =
+  { base : quad
+  ; hashtbl : (lbl, quad) Hashtbl.t
+  }
+
+let parse_labels (elem_list : elem list) (base_addr : quad) : (lbl, quad) Hashtbl.t =
+  let tbl = Hashtbl.create @@ List.length elem_list in
+  let _ =
+    List.fold_left
+      (fun data { lbl; asm; _ } ->
+        if Hashtbl.mem tbl lbl then raise (Redefined_sym lbl);
+        let size =
+          match asm with
+          | Text is -> is_size is
+          | Data ds -> ds_size ds
+        in
+        Hashtbl.add tbl lbl data.base;
+        { base = data.base +. size; hashtbl = tbl })
+      { base = base_addr; hashtbl = tbl }
+      elem_list
   in
-  loop 0L ds
-let assemble (p : prog) : exec = failwith "assemble unimplemented"
+  tbl
+;;
+
+let find_label (tbl : (lbl, quad) Hashtbl.t) (lbl : lbl) : quad =
+  match Hashtbl.find_opt tbl lbl with
+  | Some addr -> addr
+  | None -> raise (Undefined_sym lbl)
+;;
+
+let resolve_labels (elem_list : elem list) (tbl : (lbl, quad) Hashtbl.t) : elem list =
+  let find_and_raise = find_label tbl in
+  let resolve_operand (op : operand) : operand =
+    match op with
+    | Imm (Lbl l) -> Imm (Lit (find_and_raise l))
+    | Ind1 (Lbl l) -> Ind1 (Lit (find_and_raise l))
+    | Ind3 (Lbl l, r) -> Ind3 (Lit (find_and_raise l), r)
+    | _ -> op
+  in
+  let resolve_ins ({ asm; _ } as elem : elem) : elem =
+    match asm with
+    | Text is ->
+      { elem with
+        asm = Text (List.map (fun (op, args) -> op, List.map resolve_operand args) is)
+      }
+    | Data _ -> elem
+  in
+  List.map resolve_ins elem_list
+;;
+
+let assemble (p : prog) : exec =
+  let text, data =
+    List.partition
+      (fun { asm; _ } ->
+        match asm with
+        | Text _ -> true
+        | _ -> false)
+      p
+  in
+  let text_list =
+    List.fold_left
+      (fun acc { asm; _ } ->
+        match asm with
+        | Text is -> acc @ is
+        | _ -> acc)
+      []
+      text
+  and data_list =
+    List.fold_left
+      (fun acc { asm; _ } ->
+        match asm with
+        | Data ds -> acc @ ds
+        | _ -> acc)
+      []
+      data
+  in
+  let text_size = is_size text_list
+  and data_size = ds_size data_list in
+  let text_pos = mem_bot in
+  let data_pos = mem_bot +. text_size in
+  let hash_tbl = parse_labels (text @ data) text_pos in
+  let entry = find_label hash_tbl "main" in
+  let text_seg = List.flatten @@ List.map sbytes_of_ins text_list
+  and data_seg = List.flatten @@ List.map sbytes_of_data data_list in
+  { entry; text_pos; data_pos; text_seg; data_seg }
+;;
 
 (* Convert an object file into an executable machine state.
    - allocate the mem array
