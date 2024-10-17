@@ -633,5 +633,22 @@ let assemble (p : prog) : exec =
    may be of use.
 *)
 let load { entry; text_pos; data_pos; text_seg; data_seg } : mach =
-  failwith "load not implemented"
+  let mem = Array.make mem_size InsFrag in
+  let _ =
+    List.iteri
+      (fun i byte ->
+        mem.(i) <-
+          (match byte with
+           | InsB0 (op, args) -> InsB0 (op, args)
+           | InsFrag -> InsFrag
+           | Byte c -> Byte c))
+      (text_seg @ data_seg)
+  in
+  let regs = Array.make nregs 0L in
+  regs.(rind Rip) <- entry;
+  regs.(rind Rsp) <- mem_top -. 8L;
+  { flags = { fo = false; fs = false; fz = false }
+  ; regs
+  ; mem
+  }
 ;;
