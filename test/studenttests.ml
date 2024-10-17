@@ -44,6 +44,60 @@ let mov_ri =
  InsFrag;
  ]
 
+let hanoi n src tmp dst = 
+  [
+    text "hanoi"
+      [
+        Pushq, [~%Rbp]
+      ; Movq, [~%Rsp; ~%Rbp]
+      ; Subq, [~$32; ~%Rsp]
+      ; Movq, [~%Rdi; Ind3(Lit (Int64.neg 8L), Rbp)]
+      ; Movq, [~%Rsi; Ind3(Lit (Int64.neg 16L), Rbp)]
+      ; Movq, [~%Rdx; Ind3(Lit (Int64.neg 24L), Rbp)]
+      ; Movq, [~%Rcx; Ind3(Lit (Int64.neg 32L), Rbp)]
+      ; Cmpq, [~$1; Ind3(Lit (Int64.neg 8L), Rbp)]
+      ; J Neq, [~$$"hanoi_rec"]
+      ; Incq, [~%Rbx]
+      ; Jmp, [~$$"hanoi_end"]
+      ]
+    ; text "hanoi_rec"
+      [
+        Movq, [Ind3(Lit (Int64.neg 8L), Rbp); ~%Rdi]
+      ; Decq, [~%Rdi]
+      ; Movq, [Ind3(Lit (Int64.neg 16L), Rbp); ~%Rsi]
+      ; Movq, [Ind3(Lit (Int64.neg 32L), Rbp); ~%Rdx]
+      ; Movq, [Ind3(Lit (Int64.neg 24L), Rbp); ~%Rcx]
+      ; Callq, [~$$"hanoi"]
+      ; Incq, [~%Rbx]
+      ; Movq, [Ind3(Lit (Int64.neg 8L), Rbp); ~%Rdi]
+      ; Decq, [~%Rdi]
+      ; Movq, [Ind3(Lit (Int64.neg 24L), Rbp); ~%Rsi]
+      ; Movq, [Ind3(Lit (Int64.neg 16L), Rbp); ~%Rdx]
+      ; Movq, [Ind3(Lit (Int64.neg 32L), Rbp); ~%Rcx]
+      ; Callq, [~$$"hanoi"]
+      ]
+    ; text "hanoi_end"
+      [
+        Addq, [~$32; ~%Rsp]
+      ; Popq, [~%Rbp]
+      ; Retq, []
+      ]
+    ; gtext "main"
+      [
+        Pushq, [~%Rbp]
+      ; Xorq, [~%Rbx; ~%Rbx]
+      ; Movq, [~%Rsp; ~%Rbp]
+      ; Movq, [~$3; ~%Rdi]
+      ; Movq, [~$0; ~%Rsi]
+      ; Movq, [~$1; ~%Rdx]
+      ; Movq, [~$2; ~%Rcx]
+      ; Callq, [~$$"hanoi"]
+      ; Movq, [~%Rbx; ~%Rax]
+      ; Popq, [~%Rbp]
+      ; Retq, []
+      ]
+  ]
+
 let provided_tests : suite = [
   
   Test ("My Tests", [
@@ -51,7 +105,8 @@ let provided_tests : suite = [
   ]);
 
   Test ("Student-Provided Big Test for Part III: Score recorded as PartIIITestCase", [
-    
+    ("hanoi-5", program_test (hanoi 3 0 1 2) 7L); 
+    ("hanoi-7", program_test (hanoi 5 0 1 2) 7L) 
   ]);
 
 ] 
