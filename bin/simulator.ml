@@ -278,7 +278,7 @@ let rec interp_operand (m : mach) : operand -> int64 = function
     readquad m addr
 ;;
 
-let save_data (m : mach) (data : int64) (dest : operand) : unit =
+let rec save_data (m : mach) (data : int64) (dest : operand) : unit =
   match dest with
   | Ind1 _ | Ind2 _ | Ind3 _ ->
     let addr =
@@ -297,14 +297,14 @@ let save_data (m : mach) (data : int64) (dest : operand) : unit =
 ;;
 
 let fetchins (m : mach) (addr : quad) : ins =
-  if !debug_simulator then Printf.printf "fetchins: addr = %Lx\n" addr;
-  let rip = m.regs.(rind Rip) in
-  let inst = fetch_addr_val m rip in
+  (* if !debug_simulator then Printf.printf "fetchins: addr = %Lx\n" addr; *)
+  let inst = fetch_addr_val m addr in
   match inst with
   | InsB0 (op, args) :: _ -> op, args
-  | _ -> 
-    (if !debug_simulator then Printf.printf "fetchins: Error on %s\n" (Int64.to_string rip);
-    failwith ("fetchins: malformed instruction " ^ Int64.to_string rip);)
+  | InsFrag :: _ -> failwith "fetchins: should not be frag"
+  | _ ->
+    (* if !debug_simulator then Printf.printf "fetchins: Error on %s\n" (Int64.to_string addr); *)
+    failwith ("fetchins: malformed instruction " ^ Int64.to_string addr ^ ", inst:" ^ Int64.to_string @@ int64_of_sbytes inst)
 ;;
 
 (* Compute the instruction result.
@@ -343,7 +343,9 @@ let interp_opcode (m : mach) (o : opcode) (args : int64 list) : Int64_overflow.t
      | _ -> failwith "interp_opcode: unsupported instruction")
   | Set c, [ src ] ->
     let b = interp_cnd m.flags c in
-    { value = (if b then 1L else 0L); overflow = false }
+    let bit = if b then 1L else 0L in
+    let lowest = logand src 0xffffffffffffff00L in
+    ok (logor lowest bit)
   | Cmpq, [ src1; src2 ] -> sub src2 src1
   | J c, [ src ] ->
     (* TODO: *)
@@ -365,7 +367,8 @@ let ins_writeback (m : mach) (instr : ins) (value : int64) : unit =
   | (Sarq | Shlq | Shrq), [ _; dest ] -> save_data m value dest
   | (Pushq | Jmp | Callq), [ _ ] -> m.regs.(rind Rip) <- value
   | Popq, [ dest ] -> save_data m value dest
-  | (J _ | Set _), [ _ ] -> ()
+  | (Set _), [ dest ] -> save_data m value dest
+  | (J _), [ _ ] -> m.regs.(rind Rip) <- value
   | Cmpq, [ _; _ ] -> ()
   | Leaq, [ _; dest ] -> save_data m value dest
   (* | Imulq, [ _; Reg _ ] -> m.regs.(rind Rax) <- value *)
@@ -494,7 +497,11 @@ let step (m : mach) : unit =
    machine halts. *)
 let run (m : mach) : int64 =
   while m.regs.(rind Rip) <> exit_addr do
-    step m
+    if !debug_simulator then Printf.printf "Rip: %Lx; Rsp: %Lx, Rdi: %Lx, flags: [fo: %b; fs: %b; fz: %b]\n" m.regs.(rind Rip) m.regs.(rind Rsp) m.regs.(rind Rdi) m.flags.fo m.flags.fs m.flags.fz;
+    step m;
+    if !debug_simulator && List.nth (fetch_addr_val  m 0x400036L) 0 <> InsFrag then
+      Printf.printf "CHANGED!!!\n";
+
   done;
   m.regs.(rind Rax)
 ;;
@@ -652,7 +659,10 @@ let load { entry; text_pos; data_pos; text_seg; data_seg } : mach =
   regs.(rind Rip) <- entry;
   regs.(rind Rsp) <- mem_top -. 8L;
   (* exit_addr magic number in mem_top-8 *)
-  writequad { flags = { fo = false; fs = false; fz = false }; regs; mem } (mem_top -. 8L) exit_addr;
+  writequad
+    { flags = { fo = false; fs = false; fz = false }; regs; mem }
+    (mem_top -. 8L)
+    exit_addr;
   if !debug_simulator then print_endline "Loaded machine state";
   { flags = { fo = false; fs = false; fz = false }; regs; mem }
 ;;
