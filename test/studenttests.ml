@@ -141,8 +141,8 @@ let provided_tests : suite = [
   
   Test ("My Tests", [
     ("assert", test_my);
-    ("Set test", program_test set_test 0L);
-    ("Set test 2", program_test set_test2 0xFFFFFFFFFFFFFF01L);
+    ("Set & Data test", program_test set_test 0L);
+    ("Set & Data test 2", program_test set_test2 0xFFFFFFFFFFFFFF01L);
   ]);
 
   Test ("Student-Provided Big Test for Part III: Score recorded as PartIIITestCase", [
