@@ -87,10 +87,10 @@ let hanoi n src tmp dst =
         Pushq, [~%Rbp]
       ; Xorq, [~%Rbx; ~%Rbx]
       ; Movq, [~%Rsp; ~%Rbp]
-      ; Movq, [~$3; ~%Rdi]
-      ; Movq, [~$0; ~%Rsi]
-      ; Movq, [~$1; ~%Rdx]
-      ; Movq, [~$2; ~%Rcx]
+      ; Movq, [~$n; ~%Rdi]
+      ; Movq, [~$src; ~%Rsi]
+      ; Movq, [~$tmp; ~%Rdx]
+      ; Movq, [~$dst; ~%Rcx]
       ; Callq, [~$$"hanoi"]
       ; Movq, [~%Rbx; ~%Rax]
       ; Popq, [~%Rbp]
@@ -106,7 +106,7 @@ let provided_tests : suite = [
 
   Test ("Student-Provided Big Test for Part III: Score recorded as PartIIITestCase", [
     ("hanoi-5", program_test (hanoi 3 0 1 2) 7L); 
-    ("hanoi-7", program_test (hanoi 5 0 1 2) 7L) 
+    ("hanoi-7", program_test (hanoi 5 0 1 2) 31L) 
   ]);
 
 ] 
