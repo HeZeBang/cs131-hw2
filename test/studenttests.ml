@@ -98,10 +98,51 @@ let hanoi n src tmp dst =
       ]
   ]
 
+  let set_test = 
+    [
+      data "a" [
+        Quad (Lit 1L)
+      ]
+    ; data "b" [
+        Quad (Lit 2L)
+      ]
+    ; text "main" [
+        Movq, [Ind1 (Lbl "a"); ~%Rbx]
+      ; Movq, [Ind1 (Lbl "b"); ~%Rcx]
+      ; Cmpq, [~%Rbx; ~%Rcx]
+      ; Set (Eq), [~%Rax]
+      ; Retq, []
+      ]
+    ]
+  
+let set_test2 = 
+  [
+    data "a" [
+      Quad (Lit 1L)
+    ]
+  ; data "b" [
+      Quad (Lit 1L)
+    ]
+  ; data "init" [
+      Quad (Lit 0xFFFFFFFFFFFFFFFFL)
+    ]
+  ; text "main" [
+      Movq, [Ind1 (Lbl "init"); ~%Rax]
+    ; Movq, [Ind1 (Lbl "a"); ~%Rbx]
+    ; Movq, [Ind1 (Lbl "b"); ~%Rcx]
+    ; Cmpq, [~%Rbx; ~%Rcx]
+    ; Set (Eq), [~%Rax]
+    ; Retq, []
+    ]
+  ]
+
+
 let provided_tests : suite = [
   
   Test ("My Tests", [
-    ("assert", test_my)
+    ("assert", test_my);
+    ("Set test", program_test set_test 0L);
+    ("Set test 2", program_test set_test2 0xFFFFFFFFFFFFFF01L);
   ]);
 
   Test ("Student-Provided Big Test for Part III: Score recorded as PartIIITestCase", [
